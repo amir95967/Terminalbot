@@ -4,19 +4,26 @@
     <meta charset="UTF-8">
     <title>ניהול בוט טרמינל X</title>
     <style>
-        body { font-family: sans-serif; padding: 20px; text-align: center; }
-        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
-        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
-        tr:nth-child(even) { background-color: #f2 f2 f2; }
-        button { padding: 15px 30px; background: #fe fa00; cursor: pointer; font-weight: bold; border: 2px solid black; }
+        body { font-family: sans-serif; padding: 20px; text-align: center; background-color: #f4f4f9; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; background: white; }
+        th, td { border: 1px solid #ddd; padding: 12px; text-align: right; }
+        th { background-color: #333; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .controls { margin-bottom: 30px; padding: 20px; border: 2px dashed #ccc; }
+        button { padding: 15px 30px; background: #fefa00; cursor: pointer; font-weight: bold; border: 2px solid black; font-size: 18px; }
+        button:disabled { background: #ccc; cursor: not-allowed; }
+        .status { margin-top: 10px; color: blue; font-weight: bold; }
     </style>
 </head>
 <body>
     <h1>מרכז שליטה: Terminal X Bot</h1>
     
-    <button id="runBotBtn">🚀 צור משתמש חדש (יפתח דפדפן במחשב שלך)</button>
+    <div class="controls">
+        <button id="runBotBtn">🚀 צור משתמש חדש (יפתח דפדפן במחשב)</button>
+        <div id="statusMsg" class="status"></div>
+    </div>
 
-    <h2>חשבונות שנוצרו:</h2>
+    <h2>חשבונות שנוצרו בסופהבייס:</h2>
     <table>
         <thead>
             <tr>
@@ -30,32 +37,58 @@
 
     <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
     <script>
+        // שים פה את ה-KEY המלא שלך
         const SUPABASE_URL = 'https://vcbcftlykgpvgwqwyzzf.supabase.co';
-        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // שים פה את ה-Anon Key המלא שלך
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmNmdGx5a2dwdmd3cXd5enpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTc0ODEsImV4cCI6MjA5MjUzMzQ4MX0.gm1t9ZBwPfU_F5_6XubTJOi77iFj1QXwIHOMtaeZZl8'; 
         const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
+        const btn = document.getElementById('runBotBtn');
+        const status = document.getElementById('statusMsg');
+
         async function loadData() {
-            const { data } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
-            const tbody = document.getElementById('tableBody');
-            tbody.innerHTML = data ? data.map(c => `
-                <tr>
-                    <td>${c.terminal_email}</td>
-                    <td>${c.terminal_password}</td>
-                    <td><a href="${c.inbox_url}" target="_blank">פתח Maildrop</a></td>
-                </tr>
-            `).join('') : '';
+            try {
+                const { data, error } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
+                if (error) throw error;
+                const tbody = document.getElementById('tableBody');
+                tbody.innerHTML = data ? data.map(c => `
+                    <tr>
+                        <td>${c.terminal_email}</td>
+                        <td>${c.terminal_password}</td>
+                        <td><a href="${c.inbox_url}" target="_blank">פתח Maildrop</a></td>
+                    </tr>
+                `).join('') : '<tr><td colspan="3">אין נתונים</td></tr>';
+            } catch (e) {
+                console.error("שגיאה במשיכת נתונים:", e);
+            }
         }
 
-        document.getElementById('runBotBtn').onclick = async () => {
+        btn.onclick = async () => {
+            console.log("כפתור נלחץ, שולח בקשה לשרת המקומי...");
+            btn.disabled = true;
+            status.innerText = "הבוט התחיל לעבוד במחשב... פתור קאפצ'ה אם מופיעה";
+
             try {
-                const res = await fetch('http://localhost:3001/run-bot', { method: 'POST' });
+                // שימוש ב-IP המפורש 127.0.0.1 כדי למנוע בעיות DNS
+                const res = await fetch('http://127.0.0.1:3001/run-bot', { 
+                    method: 'POST',
+                    mode: 'cors' 
+                });
+                
                 const data = await res.json();
+                console.log("תגובת הבוט:", data);
+
                 if (data.success) {
-                    alert("הבוט סיים! מרענן נתונים...");
+                    alert("הצלחה! המשתמש " + data.email + " נוצר.");
                     loadData();
+                } else {
+                    alert("שגיאת בוט: " + data.error);
                 }
             } catch (e) {
-                alert("שגיאה: וודא ש-node app.js רץ אצלך במחשב על פורט 3001");
+                console.error("שגיאת תקשורת:", e);
+                alert("לא הצלחתי לדבר עם הבוט. וודא שכתוב בטרמינל שלך: 'שרת הבוט רץ בפורט 3001'");
+            } finally {
+                btn.disabled = false;
+                status.innerText = "";
             }
         };
 
