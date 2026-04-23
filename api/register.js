@@ -6,24 +6,39 @@ export default async function handler(req, res) {
     const randomStr = Math.random().toString(36).substring(2, 7);
     const email = `amir${randomStr}@maildrop.cc`;
     const password = "Amir" + Math.floor(1000 + Math.random() * 9000) + "!";
-    
+    const nextMonth = (new Date().getMonth() + 2) % 12 || 12;
+
+    // זה הקוד שבאמת גולש ולוחץ על הכפתורים
+    const script = `
+    module.exports = async ({ page }) => {
+      await page.goto('https://www.terminalx.com/customer/account/create/', { waitUntil: 'networkidle2' });
+      await page.type('input[name="firstname"]', 'Amir');
+      await page.type('input[name="lastname"]', 'Shaul');
+      await page.type('input[name="email"]', '${email}');
+      await page.type('input[name="password"]', '${password}');
+      await page.click('input[value="1"]'); // זכר
+      await page.select('select[name="day"]', '15');
+      await page.select('select[name="month"]', '${nextMonth}');
+      await page.select('select[name="year"]', '1995');
+      
+      await Promise.all([
+        page.click('button.submit'),
+        page.waitForNavigation({ waitUntil: 'networkidle2' })
+      ]);
+    };
+    `;
+
     try {
-        const response = await fetch(`https://chrome.browserless.io/content?token=${process.env.BROWSERLESS_KEY}`, {
+        const response = await fetch(`https://chrome.browserless.io/js?token=${process.env.BROWSERLESS_KEY}`, {
             method: 'POST',
-            body: JSON.stringify({ 
-                url: "https://www.terminalx.com/customer/account/create/",
-                waitForSelector: { selector: "input[name='firstname']" } // תיקון כאן: הפכנו לאובייקט
-            }),
-            headers: { 'Content-Type': 'application/json' }
+            body: script,
+            headers: { 'Content-Type': 'application/javascript' }
         });
 
-        if (!response.ok) {
-            const errorText = await response.text();
-            throw new Error(`Browserless Error: ${errorText}`);
-        }
+        if (!response.ok) throw new Error("Browserless failed to register");
 
-        // שמירה לסופהבייס לאחר אימות שהדף נטען
-        const { error } = await supabase.from('coupons').insert([
+        // רק אם הרישום בבראוזרלס הצליח - שומרים לסופהבייס
+        await supabase.from('coupons').insert([
             { 
                 terminal_email: email, 
                 terminal_password: password, 
@@ -31,8 +46,7 @@ export default async function handler(req, res) {
             }
         ]);
 
-        if (error) throw error;
-        return res.status(200).json({ success: true, email });
+        return res.status(200).json({ success: true, email, password });
 
     } catch (error) {
         return res.status(500).json({ error: error.message });
