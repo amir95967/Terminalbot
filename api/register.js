@@ -8,29 +8,42 @@ export default async function handler(req, res) {
     const password = "Amir" + Math.floor(1000 + Math.random() * 9000) + "!";
     const nextMonth = (new Date().getMonth() + 2) % 12 || 12;
 
-    // הקוד שירוץ בתוך הדפדפן של Browserless
+    // קוד נקי עבור Browserless
     const code = `
-        module.exports = async ({ page }) => {
-            await page.goto('https://www.terminalx.com/customer/account/create/', { waitUntil: 'networkidle0' });
+        async function run() {
+            const browser = await puppeteer.launch();
+            const page = await browser.newPage();
+            await page.goto('https://www.terminalx.com/customer/account/create/', { waitUntil: 'networkidle2' });
+            
+            await page.waitForSelector('input[name="firstname"]');
             await page.fill('input[name="firstname"]', 'Amir');
             await page.fill('input[name="lastname"]', 'Shaul');
             await page.fill('input[name="email"]', '${email}');
             await page.fill('input[name="password"]', '${password}');
-            await page.click('input[value="1"]');
-            await page.selectOption('select[name="day"]', '15');
-            await page.selectOption('select[name="month"]', '${nextMonth}');
-            await page.selectOption('select[name="year"]', '1995');
+            
+            // בחירת מגדר
+            const gender = await page.$('input[value="1"]');
+            if (gender) await gender.click();
+
+            // תאריך לידה
+            await page.select('select[name="day"]', '15');
+            await page.select('select[name="month"]', '${nextMonth}');
+            await page.select('select[name="year"]', '1995');
+
+            // לחיצה על הרשמה
             await page.click('button.submit');
             await page.waitForTimeout(5000);
+            
+            await browser.close();
             return { status: 'success' };
-        };
+        }
     `;
 
     try {
-        const response = await fetch(`https://chrome.browserless.io/function?token=${process.env.BROWSERLESS_KEY}`, {
+        const response = await fetch(`https://chrome.browserless.io/js?token=${process.env.BROWSERLESS_KEY}`, {
             method: 'POST',
-            body: JSON.stringify({ code }),
-            headers: { 'Content-Type': 'application/json' }
+            body: code, // שולחים את הקוד כטקסט פשוט
+            headers: { 'Content-Type': 'application/javascript' }
         });
 
         if (!response.ok) {
@@ -38,7 +51,7 @@ export default async function handler(req, res) {
             throw new Error(`Browserless Error: ${errorText}`);
         }
 
-        // שמירה לסופהבייס רק אם הבוט הצליח
+        // אם הגענו לכאן, הבוט סיים לעבוד בענן - נשמור לסופהבייס
         const { error } = await supabase.from('coupons').insert([
             { 
                 terminal_email: email, 
