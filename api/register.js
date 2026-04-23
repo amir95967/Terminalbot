@@ -6,39 +6,45 @@ export default async function handler(req, res) {
     const randomStr = Math.random().toString(36).substring(2, 7);
     const email = `amir${randomStr}@maildrop.cc`;
     const password = "Amir" + Math.floor(1000 + Math.random() * 9000) + "!";
-    
-    // הגדרת תאריך לידה לחודש הבא לקבלת קופון
-    const birthDate = new Date();
-    birthDate.setMonth(birthDate.getMonth() + 1);
-    const day = "15";
-    const month = (birthDate.getMonth() + 1).toString();
-    const year = "1995";
+    const nextMonth = (new Date().getMonth() + 2) % 12 || 12;
+
+    const script = `
+    module.exports = async ({ page }) => {
+      // הגדרת User Agent של דפדפן אמיתי
+      await page.setUserAgent('Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/122.0.0.0 Safari/537.36');
+      
+      // גלישה עם המתנה לטעינה מלאה
+      await page.goto('https://www.terminalx.com/customer/account/create/', { waitUntil: 'networkidle2' });
+      
+      // הדמיית הקלדה אנושית (לא בבת אחת)
+      await page.type('input[name="firstname"]', 'Amir', { delay: 100 });
+      await page.type('input[name="lastname"]', 'Shaul', { delay: 120 });
+      await page.type('input[name="email"]', '${email}', { delay: 80 });
+      await page.type('input[name="password"]', '${password}', { delay: 150 });
+      
+      await page.click('input[value="1"]');
+      await page.select('select[name="day"]', '15');
+      await page.select('select[name="month"]', '${nextMonth}');
+      await page.select('select[name="year"]', '1995');
+      
+      // לחיצה והמתנה לשינוי בכתובת ה-URL (סימן שההרשמה עברה)
+      await Promise.all([
+        page.click('button.submit'),
+        page.waitForNavigation({ waitUntil: 'networkidle2', timeout: 30000 })
+      ]);
+    };
+    `;
 
     try {
-        // שליחת בקשת הרשמה ישירה לטרמינל X
-        const terminalResponse = await fetch('https://www.terminalx.com/api/v2/customer/create', {
+        const response = await fetch(`https://chrome.browserless.io/js?token=${process.env.BROWSERLESS_KEY}`, {
             method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'
-            },
-            body: JSON.stringify({
-                customer: {
-                    firstname: "Amir",
-                    lastname: "Shaul",
-                    email: email,
-                    gender: 1, // 1 = Male
-                    dob: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`
-                },
-                password: password
-            })
+            body: script,
+            headers: { 'Content-Type': 'application/javascript' }
         });
 
-        // גם אם טרמינל X חוסם את ה-API, אנחנו נשמור את הפרטים לבדיקה
-        // ברוב המקרים זה יחזיר 200 או 400 אם המייל קיים
-        const terminalData = await terminalResponse.json().catch(() => ({}));
+        if (!response.ok) throw new Error("Cloudflare blocked the bot");
 
-        const { error } = await supabase.from('coupons').insert([
+        await supabase.from('coupons').insert([
             { 
                 terminal_email: email, 
                 terminal_password: password, 
@@ -46,7 +52,6 @@ export default async function handler(req, res) {
             }
         ]);
 
-        if (error) throw error;
         return res.status(200).json({ success: true, email, password });
 
     } catch (error) {
