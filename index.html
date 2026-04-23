@@ -1,60 +1,65 @@
-<div style="padding: 20px; font-family: sans-serif;">
-    <h1>Terminal X Bot Control</h1>
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>ניהול בוט טרמינל X</title>
+    <style>
+        body { font-family: sans-serif; padding: 20px; text-align: center; }
+        table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+        th, td { border: 1px solid #ddd; padding: 8px; text-align: right; }
+        tr:nth-child(even) { background-color: #f2 f2 f2; }
+        button { padding: 15px 30px; background: #fe fa00; cursor: pointer; font-weight: bold; border: 2px solid black; }
+    </style>
+</head>
+<body>
+    <h1>מרכז שליטה: Terminal X Bot</h1>
     
-    <button id="runBotBtn" style="padding: 15px 30px; background: yellow; cursor: pointer; border: 2px solid black;">
-        🚀 צור משתמש חדש (יפתח דפדפן במחשב)
-    </button>
+    <button id="runBotBtn">🚀 צור משתמש חדש (יפתח דפדפן במחשב שלך)</button>
 
-    <h2 style="margin-top: 30px;">חשבונות שנוצרו בסופהבייס:</h2>
-    <table border="1" id="couponsTable" style="width: 100%; text-align: left; border-collapse: collapse;">
+    <h2>חשבונות שנוצרו:</h2>
+    <table>
         <thead>
-            <tr style="background: #eee;">
+            <tr>
                 <th>מייל</th>
                 <th>סיסמה</th>
-                <th>קישור לתיבה</th>
+                <th>תיבת הודעות</th>
             </tr>
         </thead>
-        <tbody id="tableBody">
-            </tbody>
+        <tbody id="tableBody"></tbody>
     </table>
-</div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script>
-    const SUPABASE_URL = 'https://vcbcftlykgpvgwqwyzzf.supabase.co';
-    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // שים פה את ה-Anon Key שלך
-    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script>
+        const SUPABASE_URL = 'https://vcbcftlykgpvgwqwyzzf.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // שים פה את ה-Anon Key המלא שלך
+        const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    // פונקציה למשיכת הנתונים מהטבלה
-    async function loadCoupons() {
-        const { data } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
-        const tbody = document.getElementById('tableBody');
-        tbody.innerHTML = '';
-        if (data) {
-            data.forEach(c => {
-                tbody.innerHTML += `<tr>
+        async function loadData() {
+            const { data } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
+            const tbody = document.getElementById('tableBody');
+            tbody.innerHTML = data ? data.map(c => `
+                <tr>
                     <td>${c.terminal_email}</td>
                     <td>${c.terminal_password}</td>
-                    <td><a href="${c.inbox_url}" target="_blank">פתח מייל</a></td>
-                </tr>`;
-            });
+                    <td><a href="${c.inbox_url}" target="_blank">פתח Maildrop</a></td>
+                </tr>
+            `).join('') : '';
         }
-    }
 
-    // הפעלת הבוט דרך השרת המקומי (localhost)
-    document.getElementById('runBotBtn').onclick = async () => {
-        alert("שולח פקודה למחשב... וודא ש-node app.js רץ!");
-        try {
-            const res = await fetch('http://localhost:3001/run-bot', { method: 'POST' });
-            const data = await res.json();
-            if (data.success) {
-                alert("הרישום הסתיים בהצלחה!");
-                loadCoupons();
+        document.getElementById('runBotBtn').onclick = async () => {
+            try {
+                const res = await fetch('http://localhost:3001/run-bot', { method: 'POST' });
+                const data = await res.json();
+                if (data.success) {
+                    alert("הבוט סיים! מרענן נתונים...");
+                    loadData();
+                }
+            } catch (e) {
+                alert("שגיאה: וודא ש-node app.js רץ אצלך במחשב על פורט 3001");
             }
-        } catch (e) {
-            alert("שגיאה: וודא שהבוט פועל אצלך במחשב על פורט 3001");
-        }
-    };
+        };
 
-    loadCoupons();
-</script>
+        loadData();
+    </script>
+</body>
+</html>
