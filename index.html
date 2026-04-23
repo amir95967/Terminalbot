@@ -1,0 +1,90 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <title>Terminal X Bot</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+</head>
+<body class="bg-slate-50 min-h-screen p-10">
+    <div class="max-w-4xl mx-auto bg-white p-8 rounded-2xl shadow-lg">
+        <h1 class="text-3xl font-black mb-8 text-center">Terminal X Bot 🚀</h1>
+        
+        <div id="auth-ui" class="max-w-sm mx-auto space-y-4">
+            <input id="auth-email" type="email" placeholder="אימייל" class="w-full p-3 border rounded-xl">
+            <input id="auth-pass" type="password" placeholder="סיסמה" class="w-full p-3 border rounded-xl">
+            <button onclick="handleSignIn()" class="w-full bg-black text-white py-3 rounded-xl font-bold">התחבר</button>
+            <button onclick="handleSignUp()" class="w-full text-gray-500 text-sm">צור משתמש חדש</button>
+        </div>
+
+        <div id="main-ui" class="hidden space-y-6">
+            <div class="flex justify-between items-center">
+                <h2 class="text-xl font-bold">החשבונות שלי</h2>
+                <button id="genBtn" onclick="triggerBot()" class="bg-blue-600 text-white px-6 py-3 rounded-xl font-bold">🚀 צור חשבון חדש</button>
+            </div>
+            <table class="w-full text-right border">
+                <thead class="bg-gray-50">
+                    <tr>
+                        <th class="p-3">אימייל</th>
+                        <th class="p-3">סיסמה</th>
+                        <th class="p-3 text-center">מייל</th>
+                    </tr>
+                </thead>
+                <tbody id="list"></tbody>
+            </table>
+        </div>
+    </div>
+
+    <script>
+        const SUPABASE_URL = 'https://vcbcftlykgpvgwqwyzzf.supabase.co';
+        const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmNmdGx5a2dwdmd3cXd5enpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTc0ODEsImV4cCI6MjA5MjUzMzQ4MX0.gm1t9ZBwPfU_F5_6XubTJOi77iFj1QXwIHOMtaeZZl8';
+        const _supabase = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+        async function handleSignIn() {
+            const { data, error } = await _supabase.auth.signInWithPassword({
+                email: document.getElementById('auth-email').value,
+                password: document.getElementById('auth-pass').value
+            });
+            if (data.user) checkUser(); else alert(error.message);
+        }
+
+        async function handleSignUp() {
+            const { error } = await _supabase.auth.signUp({
+                email: document.getElementById('auth-email').value,
+                password: document.getElementById('auth-pass').value
+            });
+            alert(error ? error.message : "נרשמת! כעת התחבר.");
+        }
+
+        async function checkUser() {
+            const { data: { session } } = await _supabase.auth.getSession();
+            if (session) {
+                document.getElementById('auth-ui').classList.add('hidden');
+                document.getElementById('main-ui').classList.remove('hidden');
+                loadData();
+            }
+        }
+
+        async function loadData() {
+            const { data } = await _supabase.from('coupons').select('*').order('created_at', {ascending: false});
+            document.getElementById('list').innerHTML = data.map(i => `
+                <tr class="border-t">
+                    <td class="p-3 font-bold">${i.terminal_email}</td>
+                    <td class="p-3 text-gray-500">${i.terminal_password}</td>
+                    <td class="p-3 text-center"><a href="${i.inbox_url}" target="_blank" class="text-blue-600 underline">פתח</a></td>
+                </tr>
+            `).join('');
+        }
+
+        async function triggerBot() {
+            const btn = document.getElementById('genBtn');
+            btn.disabled = true; btn.innerText = "מריץ בוט...";
+            const session = await _supabase.auth.getSession();
+            await fetch('/api/register', { headers: { Authorization: session.data.session.access_token } });
+            btn.disabled = false; btn.innerText = "🚀 צור חשבון חדש";
+            loadData();
+        }
+        checkUser();
+    </script>
+</body>
+</html>
