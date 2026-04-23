@@ -1,113 +1,60 @@
-<!DOCTYPE html>
-<html lang="he" dir="rtl">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Terminal X Bot - Final Fix</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-</head>
-<body class="bg-slate-100 min-h-screen flex items-center justify-center p-4">
+<div style="padding: 20px; font-family: sans-serif;">
+    <h1>Terminal X Bot Control</h1>
+    
+    <button id="runBotBtn" style="padding: 15px 30px; background: yellow; cursor: pointer; border: 2px solid black;">
+        🚀 צור משתמש חדש (יפתח דפדפן במחשב)
+    </button>
 
-    <div class="bg-white p-8 rounded-3xl shadow-2xl w-full max-w-md border border-slate-200">
-        <h1 class="text-3xl font-black mb-6 text-center text-slate-800">Terminal X Bot 🚀</h1>
-        
-        <div id="auth-form" class="space-y-4">
-            <div>
-                <label class="block text-sm font-bold mb-1 mr-1">אימייל</label>
-                <input id="email" type="email" placeholder="email@example.com" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            <div>
-                <label class="block text-sm font-bold mb-1 mr-1">סיסמה (לפחות 8 תווים + אות גדולה)</label>
-                <input id="password" type="password" placeholder="••••••••" class="w-full p-4 bg-slate-50 border rounded-2xl outline-none focus:ring-2 focus:ring-blue-500">
-            </div>
-            
-            <div class="flex gap-2 pt-2">
-                <button onclick="authAction('signup')" class="flex-1 bg-slate-200 text-slate-800 py-4 rounded-2xl font-bold hover:bg-slate-300 transition">הרשמה</button>
-                <button onclick="authAction('signin')" class="flex-1 bg-blue-600 text-white py-4 rounded-2xl font-bold hover:bg-blue-700 transition shadow-lg">התחבר</button>
-            </div>
-            <p id="status" class="text-center text-sm font-medium min-h-[20px]"></p>
-        </div>
+    <h2 style="margin-top: 30px;">חשבונות שנוצרו בסופהבייס:</h2>
+    <table border="1" id="couponsTable" style="width: 100%; text-align: left; border-collapse: collapse;">
+        <thead>
+            <tr style="background: #eee;">
+                <th>מייל</th>
+                <th>סיסמה</th>
+                <th>קישור לתיבה</th>
+            </tr>
+        </thead>
+        <tbody id="tableBody">
+            </tbody>
+    </table>
+</div>
 
-        <div id="dashboard" class="hidden text-center space-y-6">
-            <div class="bg-blue-50 p-4 rounded-2xl border border-blue-100">
-                <p class="text-blue-800 font-bold">מחובר בהצלחה! ✅</p>
-            </div>
-            <button id="runBot" onclick="startBot()" class="w-full bg-black text-white py-5 rounded-2xl font-bold text-xl hover:scale-105 transition transform">🚀 צור חשבון טרמינל X</button>
-            <div id="results" class="text-right space-y-2"></div>
-        </div>
-    </div>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script>
+    const SUPABASE_URL = 'https://vcbcftlykgpvgwqwyzzf.supabase.co';
+    const SUPABASE_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...'; // שים פה את ה-Anon Key שלך
+    const supabase = window.supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
 
-    <script>
-        const S_URL = 'https://vcbcftlykgpvgwqwyzzf.supabase.co';
-        const S_KEY = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InZjYmNmdGx5a2dwdmd3cXd5enpmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzY5NTc0ODEsImV4cCI6MjA5MjUzMzQ4MX0.gm1t9ZBwPfU_F5_6XubTJOi77iFj1QXwIHOMtaeZZl8';
-        const sb = supabase.createClient(S_URL, S_KEY);
-
-        async function authAction(type) {
-            const email = document.getElementById('email').value.trim();
-            const password = document.getElementById('password').value;
-            const status = document.getElementById('status');
-            
-            if (!email || !password) {
-                status.innerText = "נא למלא אימייל וסיסמה";
-                status.className = "text-center text-red-500";
-                return;
-            }
-
-            status.innerText = type === 'signup' ? "יוצר חשבון..." : "מתחבר...";
-            status.className = "text-center text-blue-500";
-
-            const { data, error } = await (type === 'signup' 
-                ? sb.auth.signUp({ email, password }) 
-                : sb.auth.signInWithPassword({ email, password }));
-
-            if (error) {
-                status.innerText = "שגיאה: " + error.message;
-                status.className = "text-center text-red-500";
-                console.error(error);
-            } else {
-                if (type === 'signup') {
-                    status.innerText = "נרשמת! כעת לחץ על התחבר";
-                    status.className = "text-center text-green-600 font-bold";
-                } else {
-                    showDashboard();
-                }
-            }
+    // פונקציה למשיכת הנתונים מהטבלה
+    async function loadCoupons() {
+        const { data } = await supabase.from('coupons').select('*').order('created_at', { ascending: false });
+        const tbody = document.getElementById('tableBody');
+        tbody.innerHTML = '';
+        if (data) {
+            data.forEach(c => {
+                tbody.innerHTML += `<tr>
+                    <td>${c.terminal_email}</td>
+                    <td>${c.terminal_password}</td>
+                    <td><a href="${c.inbox_url}" target="_blank">פתח מייל</a></td>
+                </tr>`;
+            });
         }
+    }
 
-        function showDashboard() {
-            document.getElementById('auth-form').classList.add('hidden');
-            document.getElementById('dashboard').classList.remove('hidden');
-        }
-
-        async function startBot() {
-            const btn = document.getElementById('runBot');
-            btn.disabled = true;
-            btn.innerText = "הבוט רץ בשרת (40 שניות)... ⏳";
-            
-            const { data: { session } } = await sb.auth.getSession();
-            
-            try {
-                const res = await fetch('/api/register', {
-                    headers: { 'Authorization': session.access_token }
-                });
-                if (res.ok) {
-                    alert("הצלחה! החשבון נוצר.");
-                    location.reload(); 
-                } else {
-                    const txt = await res.text();
-                    alert("שגיאת בוט: " + txt);
-                }
-            } catch (e) {
-                alert("שגיאת תקשורת");
-            } finally {
-                btn.disabled = false;
-                btn.innerText = "🚀 צור חשבון טרמינל X";
+    // הפעלת הבוט דרך השרת המקומי (localhost)
+    document.getElementById('runBotBtn').onclick = async () => {
+        alert("שולח פקודה למחשב... וודא ש-node app.js רץ!");
+        try {
+            const res = await fetch('http://localhost:3001/run-bot', { method: 'POST' });
+            const data = await res.json();
+            if (data.success) {
+                alert("הרישום הסתיים בהצלחה!");
+                loadCoupons();
             }
+        } catch (e) {
+            alert("שגיאה: וודא שהבוט פועל אצלך במחשב על פורט 3001");
         }
+    };
 
-        // בדיקה אם כבר מחובר
-        sb.auth.getSession().then(({data}) => { if(data.session) showDashboard(); });
-    </script>
-</body>
-</html>
+    loadCoupons();
+</script>
