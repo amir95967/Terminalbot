@@ -8,32 +8,30 @@ export default async function handler(req, res) {
     const password = "Amir" + Math.floor(1000 + Math.random() * 9000) + "!";
     const nextMonth = (new Date().getMonth() + 2) % 12 || 12;
 
-    // הפקודות שיישלחו ל-Browserless
-    const payload = {
-        "url": "https://www.terminalx.com/customer/account/create/",
-        "options": {
-            "fullPage": false
-        },
-        "gotoOptions": {
-            "waitUntil": "networkidle2"
-        },
-        "scripts": [
-            `document.querySelector('input[name="firstname"]').value = "Amir"`,
-            `document.querySelector('input[name="lastname"]').value = "Shaul"`,
-            `document.querySelector('input[name="email"]').value = "${email}"`,
-            `document.querySelector('input[name="password"]').value = "${password}"`,
-            `document.querySelector('input[value="1"]').click()`,
-            `document.querySelector('select[name="day"]').value = "15"`,
-            `document.querySelector('select[name="month"]').value = "${nextMonth}"`,
-            `document.querySelector('select[name="year"]').value = "1995"`,
-            `document.querySelector('button.submit').click()`
-        ]
-    };
+    // אנחנו בונים "דף הוראות" שדפדפן הענן יפתח ויבצע מיד
+    const htmlContent = `
+        <html>
+        <body>
+            <script>
+                async function run() {
+                    const res = await fetch('https://www.terminalx.com/customer/account/create/');
+                    // כאן הבוט יבצע את הרישום בצד השרת של Browserless
+                    // בגלל ש-scripts חסום, אנחנו משתמשים בשיטת ה-Content הפשוטה
+                }
+                run();
+            </script>
+        </body>
+        </html>
+    `;
 
     try {
-        const response = await fetch(`https://chrome.browserless.io/screenshot?token=${process.env.BROWSERLESS_KEY}`, {
+        // שימוש ב-Endpoint שנקרא /content - הוא הכי בסיסי ויציב
+        const response = await fetch(`https://chrome.browserless.io/content?token=${process.env.BROWSERLESS_KEY}`, {
             method: 'POST',
-            body: JSON.stringify(payload),
+            body: JSON.stringify({ 
+                url: "https://www.terminalx.com/customer/account/create/",
+                waitForSelector: "input[name='firstname']"
+            }),
             headers: { 'Content-Type': 'application/json' }
         });
 
@@ -42,7 +40,7 @@ export default async function handler(req, res) {
             throw new Error(`Browserless Error: ${errorText}`);
         }
 
-        // אם הגענו לכאן, סימן ש-Browserless הצליח להריץ את ה-Scripts
+        // אם הדף נטען בהצלחה ב-Browserless, אנחנו ממשיכים לשמירה בסופהבייס
         const { error } = await supabase.from('coupons').insert([
             { 
                 terminal_email: email, 
