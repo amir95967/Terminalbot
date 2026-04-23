@@ -1,0 +1,8 @@
+{
+  "name": "terminalbot",
+  "version": "1.0.0",
+  "main": "api/register.js",
+  "dependencies": {
+    "@supabase/supabase-js": "^2.39.0"
+  }
+}
